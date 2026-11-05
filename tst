@@ -1,4 +1,63 @@
--- Obfuscated Roblox Lua loader
+--[[
+	WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+local getInfo = getinfo or debug.getinfo
+local debugMode = false
+local hookedFunctions = {}
+local detectedFunc, killFunc
+
+setthreadidentity(2)
+
+for _, value in ipairs(getgc(true)) do
+    if typeof(value) == "table" then
+        local detected = rawget(value, "Detected")
+        local kill = rawget(value, "Kill")
+
+        if typeof(detected) == "function" and not detectedFunc then
+            detectedFunc = detected
+            local originalHook
+            originalHook = hookfunction(detectedFunc, function(method, info, ...)
+                if method ~= "_" then
+                    if debugMode then
+                        warn(string.format(
+                            "Adonis AntiCheat flagged\nMethod: %s\nInfo: %s",
+                            tostring(method),
+                            tostring(info)
+                        ))
+                    end
+                end
+                return true
+            end)
+            table.insert(hookedFunctions, detectedFunc)
+        end
+
+        if rawget(value, "Variables") and rawget(value, "Process") and typeof(kill) == "function" and not killFunc then
+            killFunc = kill
+            local originalHook
+            originalHook = hookfunction(killFunc, function(info)
+                if debugMode then
+                    warn(string.format("Adonis AntiCheat tried to kill (fallback): %s", tostring(info)))
+                end
+            end)
+            table.insert(hookedFunctions, killFunc)
+        end
+    end
+end
+
+local originalDebugInfo
+originalDebugInfo = hookfunction(getrenv().debug.info, newcclosure(function(...)
+    local firstArg, _ = ...
+    if detectedFunc and firstArg == detectedFunc then
+        if debugMode then
+            warn("Adonis bypassed")
+        end
+        return coroutine.yield(coroutine.running())
+    end
+    return originalDebugInfo(...)
+end))
+
+setthreadidentity(7)
+
 local _0xA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 local _0xB = {
     "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",
